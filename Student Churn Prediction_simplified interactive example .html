@@ -1,0 +1,301 @@
+
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Churn Analysis Dashboard</title>
+    <!-- Include Chart.js library for visualizations -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Tailwind CSS for basic styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: "Inter", sans-serif; background-color: #f4f7f6; color: #333; }
+        /* Scale the maximum width and height of the container relative to the viewport size */
+        .container {
+            max-width: 95vw; /* Increased to 95% of viewport width */
+            max-height: none; /* Removed height restriction for better adaptation */
+            margin: 1rem auto; /* Reduced margins */
+            padding: 1rem; /* Reduced inner padding */
+            background-color: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            overflow-y: auto; /* Add scrolling if content exceeds height */
+        }
+        h1, h2 { color: #2c3e50; margin-bottom: 0.75rem; } /* Reduced bottom margin */
+        table { width: 100%; border-collapse: collapse; margin-top: 0.5rem; } /* Reduced top margin */
+        th, td { border: 1px solid #e0e0e0; padding: 0.5rem; text-align: left; font-size: 0.9rem; } /* Reduced padding and font size */
+        th { background-color: #f8f8f8; font-weight: 600; }
+        .chart-container {
+            margin-top: 1.5rem; /* Reduced top margin */
+            padding: 0.75rem; /* Reduced inner padding */
+            background-color: #fdfdfd;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+            /* Ensure chart containers also scale */
+            height: 300px; /* Reduced chart height */
+            width: 100%;
+        }
+        /* Make canvas elements fully responsive to their parent containers */
+        canvas {
+            width: 100% !important;
+            height: 100% !important;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); /* Responsive column layout */
+            gap: 1rem; /* Reduced gap between items */
+        }
+        .col-span-1 {
+            grid-column: span 1;
+        }
+        @media (min-width: 768px) {
+            .md\:grid-cols-2 > * {
+                grid-column: span 1;
+            }
+            .md\:grid-cols-2 {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+    </style>
+</head>
+<body class="p-2">
+    <div class="container">
+        <h1 class="text-2xl font-bold mb-4 text-center">Student Churn Analysis Dashboard</h1>
+
+        <div class="grid">
+            <div class="col-span-1">
+                <h2 class="text-xl font-semibold">High-Risk Students</h2>
+                <div id="highRiskStudentsList" class="bg-red-50 p-2 rounded-lg border border-red-200 text-sm">
+                    <p class="text-gray-600">Loading high-risk student data...</p>
+                </div>
+            </div>
+
+            <div class="col-span-1">
+                <h2 class="text-xl font-semibold">New Student Churn Prediction</h2>
+                <div class="p-2 bg-blue-50 rounded-lg border border-blue-200 text-sm">
+                    <p class="text-gray-700"><strong>GPA:</strong> 2.3</p>
+                    <p class="text-gray-700"><strong>Attendance Rate:</strong> 0.6</p>
+                    <p class="text-gray-700"><strong>Credits Completed:</strong> 25</p>
+                    <p class="text-gray-700"><strong>Financial Aid:</strong> Yes</p>
+                    <p class="text-gray-700"><strong>Online Activity:</strong> 0.4</p>
+                    <p id="newStudentPrediction" class="mt-1 font-bold text-base text-blue-800">Prediction: Loading...</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="chart-container mt-3">
+            <h2 class="text-xl font-semibold">Student Churn by GPA Range</h2>
+            <canvas id="churnGpaChart"></canvas>
+        </div>
+
+        <div class="chart-container mt-3">
+            <h2 class="text-xl font-semibold">Student Churn by Financial Aid Status</h2>
+            <canvas id="churnFinancialAidChart"></canvas>
+        </div>
+    </div>
+
+    <script>
+        // --- JavaScript Code for Web Visualization of Churn Prediction Results ---
+        // This is conceptual. In a real application, this data would be fetched from a backend API
+        // (e.g., Python Flask/Django, Node.js) that runs the ML models.
+
+        // Simulated data from a backend analysis
+        const churnPredictionData = [
+            { studentId: 101, gpa: 3.5, financialAid: false, churnProbability: 0.15, status: "Low Risk" },
+            { studentId: 102, gpa: 2.1, financialAid: true, churnProbability: 0.85, status: "High Risk" },
+            { studentId: 103, gpa: 3.0, financialAid: false, churnProbability: 0.40, status: "Moderate Risk" },
+            { studentId: 104, gpa: 2.4, financialAid: true, churnProbability: 0.70, status: "High Risk" },
+            { studentId: 105, gpa: 3.8, financialAid: false, churnProbability: 0.05, status: "Low Risk" },
+            { studentId: 106, gpa: 2.7, financialAid: false, churnProbability: 0.55, status: "Moderate Risk" },
+            { studentId: 107, gpa: 1.9, financialAid: true, churnProbability: 0.95, status: "High Risk" },
+            { studentId: 108, gpa: 3.2, financialAid: true, churnProbability: 0.20, status: "Low Risk" },
+        ];
+
+        // Simulated aggregated data for charts
+        const churnByGpa = [
+            { gpaRange: "2.0-2.5", noChurn: 150, churn: 80 },
+            { gpaRange: "2.6-3.0", noChurn: 250, churn: 30 },
+            { gpaRange: "3.1-3.5", noChurn: 300, churn: 15 },
+            { gpaRange: "3.6-4.0", noChurn: 200, churn: 5 }
+        ];
+
+        const churnByFinancialAid = [
+            { aidStatus: "No Aid", noChurn: 600, churn: 50 },
+            { aidStatus: "Has Aid", noChurn: 100, churn: 200 }
+        ];
+
+        // Function to render a list of high-risk students
+        function renderHighRiskStudents(data) {
+            const container = document.getElementById('highRiskStudentsList');
+            if (!container) return;
+
+            const highRiskStudents = data.filter(s => s.status === "High Risk").sort((a, b) => b.churnProbability - a.churnProbability);
+
+            if (highRiskStudents.length === 0) {
+                container.innerHTML = '<p class="text-green-600">No high-risk students identified at this time.</p>';
+                return;
+            }
+
+            const table = document.createElement('table');
+            table.className = 'w-full text-sm';
+            table.innerHTML = `
+                <thead>
+                    <tr class="bg-gray-100">
+                        <th class="py-1 px-2 rounded-tl-lg">Student ID</th>
+                        <th class="py-1 px-2">GPA</th>
+                        <th class="py-1 px-2">Financial Aid</th>
+                        <th class="py-1 px-2 rounded-tr-lg">Churn Probability</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            `;
+            const tbody = table.querySelector('tbody');
+
+            highRiskStudents.forEach(student => {
+                const row = document.createElement('tr');
+                row.className = 'border-b border-gray-200 last:border-0';
+                row.innerHTML = `
+                    <td class="py-1 px-2">${student.studentId}</td>
+                    <td class="py-1 px-2">${student.gpa.toFixed(2)}</td>
+                    <td class="py-1 px-2">${student.financialAid ? 'Yes' : 'No'}</td>
+                    <td class="py-1 px-2 text-red-700 font-medium">${(student.churnProbability * 100).toFixed(1)}%</td>
+                `;
+                tbody.appendChild(row);
+            });
+            container.innerHTML = ''; // Clear loading text
+            container.appendChild(table);
+        }
+
+        // Function to render the new student prediction result
+        function renderNewStudentPrediction() {
+            const predictionEl = document.getElementById('newStudentPrediction');
+            // This would come from a real-time API call to your ML model
+            const simulatedProbability = 0.78; // Example result
+            const status = simulatedProbability > 0.5 ? "High Risk" : "Low Risk";
+            predictionEl.textContent = `Prediction: ${status} (Probability: ${(simulatedProbability * 100).toFixed(1)}%)`;
+            predictionEl.className = `mt-1 font-bold text-base ${status === 'High Risk' ? 'text-red-800' : 'text-green-800'}`;
+        }
+
+
+        // Function to render a bar chart for Churn by GPA
+        function renderChurnGpaChart(data) {
+            const ctx = document.getElementById('churnGpaChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: data.map(d => d.gpaRange),
+                    datasets: [
+                        {
+                            label: 'No Churn',
+                            data: data.map(d => d.noChurn),
+                            backgroundColor: 'rgba(75, 192, 192, 0.7)',
+                            borderColor: 'rgba(75, 192, 192, 1)',
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'Churn',
+                            data: data.map(d => d.churn),
+                            backgroundColor: 'rgba(255, 99, 132, 0.7)',
+                            borderColor: 'rgba(255, 99, 132, 1)',
+                            borderWidth: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            stacked: true,
+                            grid: { display: false },
+                            ticks: {
+                                font: {
+                                    size: 10 // Reduced font size for x-axis labels
+                                }
+                            }
+                        },
+                        y: {
+                            stacked: true,
+                            beginAtZero: true,
+                            title: { display: true, text: 'Number of Students', font: { size: 12 } }, // Reduced font size for y-axis title
+                            ticks: {
+                                font: {
+                                    size: 10 // Reduced font size for y-axis labels
+                                }
+                            }
+                        }
+                    },
+                    plugins: {
+                        title: { display: true, text: 'Student Churn by GPA', font: { size: 14 } }, // Reduced font size for chart title
+                        legend: { position: 'bottom', labels: { font: { size: 10 } } } // Reduced font size for legend
+                    }
+                }
+            });
+        }
+
+        // Function to render a bar chart for Churn by Financial Aid
+        function renderChurnFinancialAidChart(data) {
+            const ctx = document.getElementById('churnFinancialAidChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: data.map(d => d.aidStatus),
+                    datasets: [
+                        {
+                            label: 'No Churn',
+                            data: data.map(d => d.noChurn),
+                            backgroundColor: 'rgba(54, 162, 235, 0.7)',
+                            borderColor: 'rgba(54, 162, 235, 1)',
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'Churn',
+                            data: data.map(d => d.churn),
+                            backgroundColor: 'rgba(255, 159, 64, 0.7)',
+                            borderColor: 'rgba(255, 159, 64, 1)',
+                            borderWidth: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            stacked: true,
+                            grid: { display: false },
+                            ticks: {
+                                font: {
+                                    size: 10 // Reduced font size for x-axis labels
+                                }
+                            }
+                        },
+                        y: {
+                            stacked: true,
+                            beginAtZero: true,
+                            title: { display: true, text: 'Number of Students', font: { size: 12 } }, // Reduced font size for y-axis title
+                            ticks: {
+                                font: {
+                                    size: 10 // Reduced font size for y-axis labels
+                                }
+                            }
+                        }
+                    },
+                    plugins: {
+                        title: { display: true, text: 'Student Churn by Financial Aid Status', font: { size: 14 } }, // Reduced font size for chart title
+                        legend: { position: 'bottom', labels: { font: { size: 10 } } } // Reduced font size for legend
+                    }
+                }
+            });
+        }
+
+        // Call functions to render on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            renderHighRiskStudents(churnPredictionData);
+            renderNewStudentPrediction();
+            renderChurnGpaChart(churnByGpa);
+            renderChurnFinancialAidChart(churnByFinancialAid);
+        });
+    </script>
+</body>
+</html>
